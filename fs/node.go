@@ -4,6 +4,7 @@ import (
 	"context"
 	"hash/fnv"
 	"os/user"
+	"path/filepath"
 	"strconv"
 	"syscall"
 	"time"
@@ -56,7 +57,23 @@ func (n *Node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	return fs.NewListDirStream(filesList), fs.OK
 }
 
-func (n *Node) Getattr(ctx context.Context, out *fuse.AttrOut) syscall.Errno {
+func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	path := n.Path(n.Root()) + string(filepath.Separator) + name
+
+	file, err := n.mcapi.GetFileByPath(path)
+	if err != nil {
+		return nil, syscall.ENOENT
+	}
+
+	newNode := Node{
+		mcapi:  n.mcapi,
+		MCFile: file,
+	}
+
+	return n.NewInode(ctx, &newNode, fs.StableAttr{Mode: n.getMode(*file), Ino: n.inodeHash(*file)}), fs.OK
+}
+
+func (n *Node) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 	out.Mode = n.getMode(*n.MCFile)
 	out.Size = n.MCFile.Size
 	out.Ino = n.inodeHash(*n.MCFile)

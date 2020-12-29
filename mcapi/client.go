@@ -47,6 +47,30 @@ func (c *Client) ListDirectory(path string) ([]MCFile, error) {
 	return files, nil
 }
 
+//  form = {"path": file_path, "project_id": project_id}
+//        return File(self.post("/files/by_path", form))
+
+func (c *Client) GetFileByPath(path string) (*MCFile, error) {
+	var req struct {
+		Path      string `json:"path"`
+		ProjectID int    `json:"project_id"`
+	}
+	req.Path = path
+	req.ProjectID = c.projectID
+
+	var file MCFile
+	resp, err := c.resty.R().SetQueryParam("path", path).
+		SetResult(&file).
+		SetBody(req).
+		Post("/files/by_path")
+
+	if err := c.getAPIError(resp, err); err != nil {
+		return nil, err
+	}
+
+	return &file, nil
+}
+
 func (c *Client) getAPIError(resp *resty.Response, err error) error {
 	switch {
 	case err != nil:
