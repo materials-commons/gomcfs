@@ -14,6 +14,12 @@ import (
 	"github.com/materials-commons/gomcfs/mcapi"
 )
 
+var (
+	_ fs.NodeGetattrer = &Node{}
+	_ fs.NodeReaddirer = &Node{}
+	_ fs.NodeLookuper  = &Node{}
+)
+
 type Node struct {
 	fs.Inode
 	mcapi  mcapi.Client
