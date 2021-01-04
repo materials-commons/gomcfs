@@ -18,7 +18,7 @@ type Client struct {
 var ErrAuth = errors.New("auth")
 var ErrMCAPI = errors.New("mcapi")
 
-func NewClient(token string, projectID int, mcurl string) *Client {
+func NewClient(mcurl string, token string, projectID int) *Client {
 	c := &Client{
 		token:     token,
 		projectID: projectID,
@@ -35,16 +35,18 @@ func NewClient(token string, projectID int, mcurl string) *Client {
 }
 
 func (c *Client) ListDirectory(path string) ([]MCFile, error) {
-	var files []MCFile
+	var result struct {
+		Data []MCFile `json:"data"`
+	}
 	resp, err := c.resty.R().SetQueryParam("path", path).
-		SetResult(&files).
+		SetResult(&result).
 		Get(fmt.Sprintf("%s/projects/%d/directories_by_path", c.mcurl, c.projectID))
 
 	if err := c.getAPIError(resp, err); err != nil {
 		return nil, err
 	}
 
-	return files, nil
+	return result.Data, nil
 }
 
 //  form = {"path": file_path, "project_id": project_id}
@@ -58,9 +60,12 @@ func (c *Client) GetFileByPath(path string) (*MCFile, error) {
 	req.Path = path
 	req.ProjectID = c.projectID
 
-	var file MCFile
+	var result struct {
+		Data MCFile `json:"data"`
+	}
+
 	resp, err := c.resty.R().SetQueryParam("path", path).
-		SetResult(&file).
+		SetResult(&result).
 		SetBody(req).
 		Post("/files/by_path")
 
@@ -68,7 +73,7 @@ func (c *Client) GetFileByPath(path string) (*MCFile, error) {
 		return nil, err
 	}
 
-	return &file, nil
+	return &result.Data, nil
 }
 
 func (c *Client) getAPIError(resp *resty.Response, err error) error {
