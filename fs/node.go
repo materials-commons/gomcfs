@@ -2,8 +2,6 @@ package fs
 
 import (
 	"context"
-	"fmt"
-	"github.com/apex/log"
 	"hash/fnv"
 	"os/user"
 	"path/filepath"
@@ -53,9 +51,9 @@ func init() {
 }
 
 func (n *Node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
-	if n.MCFile != nil {
-		fmt.Printf("MCFile not nil, path = %s\n", n.MCFile.Path)
-	}
+	//if n.MCFile != nil {
+	//	fmt.Printf("MCFile not nil, path = %s\n", n.MCFile.Path)
+	//}
 	path := n.Path(n.Root())
 	if path == "" {
 		path = "/"
@@ -64,12 +62,12 @@ func (n *Node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 		path = "/" + path
 	}
 
-	fmt.Printf("Readdir path: '%s'\n", path)
+	//fmt.Printf("Readdir path: '%s'\n", path)
 
 	var err error
 	if !n.filesLoaded {
 		if n.files, err = n.mcapi.ListDirectory(path); err != nil {
-			fmt.Printf("   ListDirectory returned error %s for path %s\n", err, path)
+			//fmt.Printf("   ListDirectory returned error %s for path %s\n", err, path)
 			return nil, syscall.EIO
 		}
 		n.filesLoaded = true
@@ -103,8 +101,8 @@ func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 	var err error
 
 	if n.filesLoaded {
-		fmt.Printf("files loaded for path %s, skipping REST call\n", path)
-		fmt.Printf("Looking for %s\n", path)
+		//fmt.Printf("files loaded for path %s, skipping REST call\n", path)
+		//fmt.Printf("Looking for %s\n", path)
 		for _, fileEntry := range n.files {
 			//fmt.Printf("fileEntry.Path = %s\n", fileEntry.Path)
 			if pathsMatch(path, fileEntry) {
@@ -115,7 +113,7 @@ func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 	} else {
 		file, err = n.mcapi.GetFileByPath(path)
 		if err != nil {
-			log.Infof("GetFileByPath returned error %s for path %s", err, path)
+			//log.Infof("GetFileByPath returned error %s for path %s", err, path)
 			return nil, syscall.ENOENT
 		}
 	}
@@ -139,10 +137,13 @@ func pathsMatch(path string, fileEntry mcapi.MCFile) bool {
 		return path == fileEntry.Path
 	}
 
+	//fmt.Printf("%s: fileEntry.Directory.Path = %s\n", fileEntry.Name, fileEntry.Directory.Path)
 	if fileEntry.Directory.Path == "/" {
+		//fmt.Printf("pathsMatch root: %s %s\n", path, fileEntry.Directory.Path+fileEntry.Name)
 		return path == fileEntry.Directory.Path+fileEntry.Name
 	}
 
+	//fmt.Printf("pathsMatch sub: %s %s\n", path, fileEntry.Directory.Path+"/"+fileEntry.Name)
 	return path == fileEntry.Directory.Path+"/"+fileEntry.Name
 }
 
