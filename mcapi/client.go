@@ -18,6 +18,10 @@ type Client struct {
 var ErrAuth = errors.New("auth")
 var ErrMCAPI = errors.New("mcapi")
 
+type FileResponse struct {
+	Data MCFile `json:"data"`
+}
+
 func NewClient(mcurl string, token string, projectID int) *Client {
 	c := &Client{
 		token:     token,
@@ -49,16 +53,14 @@ func (c *Client) ListDirectory(path string) ([]MCFile, error) {
 	return result.Data, nil
 }
 
-//  form = {"path": file_path, "project_id": project_id}
-//        return File(self.post("/files/by_path", form))
-
 func (c *Client) GetFileByPath(path string) (*MCFile, error) {
-	var req struct {
+	req := struct {
 		Path      string `json:"path"`
 		ProjectID int    `json:"project_id"`
+	}{
+		Path:      path,
+		ProjectID: c.projectID,
 	}
-	req.Path = path
-	req.ProjectID = c.projectID
 
 	var result struct {
 		Data MCFile `json:"data"`
@@ -68,6 +70,32 @@ func (c *Client) GetFileByPath(path string) (*MCFile, error) {
 		SetResult(&result).
 		SetBody(req).
 		Post("/files/by_path")
+
+	if err := c.getAPIError(resp, err); err != nil {
+		return nil, err
+	}
+
+	return &result.Data, nil
+}
+
+// form = {"name": name, "directory_id": parent_id, "project_id": project_id}
+//        form = merge_dicts(form, attrs.to_dict())
+//        return File(self.post("/directories", form))
+
+func (c *Client) CreateDirectory(name string, parentDirectoryId int) (*MCFile, error) {
+	req := struct {
+		Name        string `json:"name"`
+		DirectoryId int    `json:"directory_id"`
+		ProjectID   int    `json:"project_id"`
+	}{
+		Name:        name,
+		DirectoryId: parentDirectoryId,
+		ProjectID:   c.projectID,
+	}
+
+	var result FileResponse
+
+	resp, err := c.resty.R().SetResult(&result).SetBody(req).Post("/directories")
 
 	if err := c.getAPIError(resp, err); err != nil {
 		return nil, err
