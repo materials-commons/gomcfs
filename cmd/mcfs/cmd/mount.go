@@ -93,9 +93,9 @@ func (s *Server) listenForUnmount() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	sig := <-c
-	log.Infof("Got %s signal, unmount %q...", sig, s.mountPoint)
+	log.Infof("Got %s signal, unmounting %q...", sig, s.mountPoint)
 	if err := s.Unmount(); err != nil {
-		log.Errorf("Failed to unmount, try %q manually.", "unmount "+s.mountPoint)
+		log.Errorf("Failed to unmount: %s, try 'umount %s' manually.", err, s.mountPoint)
 	}
 
 	<-c

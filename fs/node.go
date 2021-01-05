@@ -25,8 +25,10 @@ var (
 
 type Node struct {
 	fs.Inode
-	mcapi  *mcapi.Client
-	MCFile *mcapi.MCFile
+	mcapi       *mcapi.Client
+	MCFile      *mcapi.MCFile
+	files       []mcapi.MCFile
+	filesLoaded bool
 }
 
 func RootNode(mcapi *mcapi.Client) *Node {
@@ -64,15 +66,18 @@ func (n *Node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 
 	fmt.Printf("Readdir path: '%s'\n", path)
 
-	files, err := n.mcapi.ListDirectory(path)
-	if err != nil {
-		fmt.Printf("   ListDirectory returned error %s for path %s\n", err, path)
-		return nil, syscall.EIO
+	var err error
+	if !n.filesLoaded {
+		if n.files, err = n.mcapi.ListDirectory(path); err != nil {
+			fmt.Printf("   ListDirectory returned error %s for path %s\n", err, path)
+			return nil, syscall.EIO
+		}
+		n.filesLoaded = true
 	}
 
-	filesList := make([]fuse.DirEntry, 0, len(files))
+	filesList := make([]fuse.DirEntry, 0, len(n.files))
 
-	for _, fileEntry := range files {
+	for _, fileEntry := range n.files {
 		entry := fuse.DirEntry{
 			Mode: n.getMode(&fileEntry),
 			Name: fileEntry.Name,
@@ -94,10 +99,29 @@ func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 	}
 
 	//fmt.Printf("Lookup: '%s': %s\n", path, name)
+	var file *mcapi.MCFile
+	var err error
 
-	file, err := n.mcapi.GetFileByPath(path)
-	if err != nil {
-		log.Infof("GetFileByPath returned error %s for path %s", err, path)
+	if n.filesLoaded {
+		fmt.Printf("files loaded for path %s, skipping REST call\n", path)
+		fmt.Printf("Looking for %s\n", path)
+		for _, fileEntry := range n.files {
+			//fmt.Printf("fileEntry.Path = %s\n", fileEntry.Path)
+			if pathsMatch(path, fileEntry) {
+				file = &fileEntry
+				break
+			}
+		}
+	} else {
+		file, err = n.mcapi.GetFileByPath(path)
+		if err != nil {
+			log.Infof("GetFileByPath returned error %s for path %s", err, path)
+			return nil, syscall.ENOENT
+		}
+	}
+
+	if file == nil {
+		//log.Infof("Couldn't find file %s", path)
 		return nil, syscall.ENOENT
 	}
 
@@ -108,6 +132,18 @@ func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 	}
 
 	return n.NewInode(ctx, &newNode, fs.StableAttr{Mode: n.getMode(file), Ino: n.inodeHash(file)}), fs.OK
+}
+
+func pathsMatch(path string, fileEntry mcapi.MCFile) bool {
+	if fileEntry.IsDir() {
+		return path == fileEntry.Path
+	}
+
+	if fileEntry.Directory.Path == "/" {
+		return path == fileEntry.Directory.Path+fileEntry.Name
+	}
+
+	return path == fileEntry.Directory.Path+"/"+fileEntry.Name
 }
 
 func (n *Node) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
