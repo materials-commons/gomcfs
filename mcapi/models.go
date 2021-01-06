@@ -25,12 +25,10 @@ func (f File) IsDir() bool {
 
 func (f MCFile) FullPath() string {
 	if f.IsDir() {
-		if f.Path == "/" {
-			return f.Path + f.Name
-		}
-		return f.Path + "/" + f.Name
+		return f.Path
 	}
 
+	// f is a file and not a directory
 	if f.Directory.Path == "/" {
 		return f.Directory.Path + f.Name
 	}
