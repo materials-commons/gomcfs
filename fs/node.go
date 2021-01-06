@@ -2,6 +2,7 @@ package fs
 
 import (
 	"context"
+	"fmt"
 	"hash/fnv"
 	"os/user"
 	"path/filepath"
@@ -148,6 +149,12 @@ func pathsMatch(path string, fileEntry mcapi.MCFile) bool {
 }
 
 func (n *Node) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+	path := n.Path(n.Root())
+	if n.MCFile != nil {
+		fmt.Printf("GetAttr: %s %s\n", path, n.MCFile.Name)
+	} else {
+		fmt.Printf("GetAttr MCFile nil: %s\n", path)
+	}
 	out.Mode = n.getMode(n.MCFile)
 	if n.MCFile == nil {
 		out.Size = 0
@@ -176,9 +183,11 @@ func (n *Node) getMode(entry *mcapi.MCFile) uint32 {
 
 func (n *Node) inodeHash(entry *mcapi.MCFile) uint64 {
 	if entry == nil {
+		fmt.Printf("inodeHash entry is nil\n")
 		return 1
 	}
 
+	fmt.Printf("inodeHash entry.FullPath() = %s\n", entry.FullPath())
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(entry.FullPath()))
 	return h.Sum64()
