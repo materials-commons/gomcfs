@@ -5,7 +5,6 @@ import (
 	"hash/fnv"
 	"log"
 	"os/user"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -70,13 +69,17 @@ func (n *Node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 	//if n.MCFile != nil {
 	//	fmt.Printf("MCFile not nil, path = %s\n", n.MCFile.Path)
 	//}
-	path := n.Path(n.Root())
-	if path == "" {
-		path = "/"
-	}
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
+
+	//path := n.Path(n.Root())
+	//if path == "" {
+	//	path = "/"
+	//}
+	//
+	//if !strings.HasPrefix(path, "/") {
+	//	path = "/" + path
+	//}
+
+	path := n.path("")
 
 	//fmt.Printf("Readdir path: '%s'\n", path)
 
@@ -106,11 +109,13 @@ func (n *Node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
 }
 
 func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
-	path := n.Path(n.Root()) + string(filepath.Separator) + name
+	//path := n.Path(n.Root()) + string(filepath.Separator) + name
+	//
+	//if !strings.HasPrefix(path, "/") {
+	//	path = "/" + path
+	//}
 
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
+	path := n.path(name)
 
 	//fmt.Printf("Lookup: '%s': %s\n", path, name)
 	var file *mcapi.MCFile
@@ -155,6 +160,24 @@ func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 	out.SetTimes(&now, &now, &now)
 
 	return n.NewInode(ctx, &newNode, fs.StableAttr{Mode: n.getMode(file), Ino: n.inodeHash(file)}), fs.OK
+}
+
+func (n *Node) path(name string) string {
+	path := n.Path(n.Root())
+
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	if name != "" {
+		if path == "/" {
+			return path + name
+		}
+
+		return path + "/" + name
+	}
+
+	return path
 }
 
 func pathsMatch(path string, fileEntry mcapi.MCFile) bool {
