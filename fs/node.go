@@ -2,7 +2,6 @@ package fs
 
 import (
 	"context"
-	"fmt"
 	"hash/fnv"
 	"log"
 	"os/user"
@@ -65,8 +64,6 @@ func init() {
 	gid32, _ := strconv.ParseUint(u.Gid, 10, 32)
 	uid = uint32(uid32)
 	gid = uint32(gid32)
-
-	fmt.Printf("uid = %d, gid = %d\n", uid, gid)
 }
 
 func (n *Node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
@@ -153,6 +150,9 @@ func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 	if file.IsFile() {
 		out.Size = file.Size
 	}
+
+	now := time.Now()
+	out.SetTimes(&now, &now, &now)
 
 	return n.NewInode(ctx, &newNode, fs.StableAttr{Mode: n.getMode(file), Ino: n.inodeHash(file)}), fs.OK
 }
