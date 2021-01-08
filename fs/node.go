@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"os/user"
 	"path/filepath"
 	"strconv"
@@ -31,9 +32,24 @@ type Node struct {
 }
 
 func RootNode(mcapi *mcapi.Client) *Node {
-	return &Node{
+	var (
+		err error
+	)
+	n := &Node{
 		mcapi: mcapi,
 	}
+
+	if n.MCFile, err = n.mcapi.GetFileByPath("/"); err != nil {
+		log.Panicf("Server not responding: %s, aborting...", err)
+	}
+
+	if n.files, err = n.mcapi.ListDirectory("/"); err != nil {
+		log.Panicf("Server not responding: %s, aborting...", err)
+	}
+
+	n.filesLoaded = true
+
+	return n
 }
 
 // Set file owners to the current user,
@@ -49,6 +65,8 @@ func init() {
 	gid32, _ := strconv.ParseUint(u.Gid, 10, 32)
 	uid = uint32(uid32)
 	gid = uint32(gid32)
+
+	fmt.Printf("uid = %d, gid = %d\n", uid, gid)
 }
 
 func (n *Node) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
@@ -130,6 +148,12 @@ func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 		MCFile: file,
 	}
 
+	out.Uid = uid
+	out.Gid = gid
+	if file.IsFile() {
+		out.Size = file.Size
+	}
+
 	return n.NewInode(ctx, &newNode, fs.StableAttr{Mode: n.getMode(file), Ino: n.inodeHash(file)}), fs.OK
 }
 
@@ -149,12 +173,12 @@ func pathsMatch(path string, fileEntry mcapi.MCFile) bool {
 }
 
 func (n *Node) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-	path := n.Path(n.Root())
-	if n.MCFile != nil {
-		fmt.Printf("GetAttr: %s %s\n", path, n.MCFile.Name)
-	} else {
-		fmt.Printf("GetAttr MCFile nil: %s\n", path)
-	}
+	//path := n.Path(n.Root())
+	//if n.MCFile != nil {
+	//	fmt.Printf("GetAttr: path = %s name = %s\n", path, n.MCFile.Name)
+	//} else {
+	//	fmt.Printf("GetAttr MCFile nil: %s\n", path)
+	//}
 	out.Mode = n.getMode(n.MCFile)
 	if n.MCFile == nil {
 		out.Size = 0
@@ -178,16 +202,17 @@ func (n *Node) getMode(entry *mcapi.MCFile) uint32 {
 		return 0755 | uint32(syscall.S_IFDIR)
 	}
 
-	return 0644 | uint32(syscall.S_IFREG)
+	//return 0644 | uint32(syscall.S_IFREG)
+	return 0666 | uint32(syscall.S_IFREG)
 }
 
 func (n *Node) inodeHash(entry *mcapi.MCFile) uint64 {
 	if entry == nil {
-		fmt.Printf("inodeHash entry is nil\n")
+		//fmt.Printf("inodeHash entry is nil\n")
 		return 1
 	}
 
-	fmt.Printf("inodeHash entry.FullPath() = %s\n", entry.FullPath())
+	//fmt.Printf("inodeHash entry.FullPath() = %s\n", entry.FullPath())
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(entry.FullPath()))
 	return h.Sum64()
