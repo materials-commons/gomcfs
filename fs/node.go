@@ -162,6 +162,30 @@ func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 	return n.NewInode(ctx, &newNode, fs.StableAttr{Mode: n.getMode(file), Ino: n.inodeHash(file)}), fs.OK
 }
 
+func (n *Node) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	return nil, syscall.EIO
+}
+
+func (n *Node) Rmdir(ctx context.Context, name string) syscall.Errno {
+	return syscall.EIO
+}
+
+func (n *Node) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (inode *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+	return nil, nil, 0, syscall.EIO
+}
+
+func (n *Node) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+	return nil, 0, syscall.EIO
+}
+
+func (n *Node) Rename(ctx context.Context, name string, newParent fs.InodeEmbedder, newName string, flags uint32) syscall.Errno {
+	return syscall.EIO
+}
+
+func (n *Node) Unlink(ctx context.Context, name string) syscall.Errno {
+	return syscall.EIO
+}
+
 func (n *Node) path(name string) string {
 	path := n.Path(n.Root())
 
