@@ -5,8 +5,8 @@ import (
 	"hash/fnv"
 	"log"
 	"os/user"
+	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -162,8 +162,24 @@ func (n *Node) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs
 	return n.NewInode(ctx, &newNode, fs.StableAttr{Mode: n.getMode(file), Ino: n.inodeHash(file)}), fs.OK
 }
 
+// Mkdir will create a directory on the Materials Commons server. TODO: Reflect the created directory in the
+// cached nodes. This will require changing to the cache implementation.
 func (n *Node) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
-	return nil, syscall.EIO
+	dir, err := n.mcapi.CreateDirectory(name, n.MCFile.ID)
+	if err != nil {
+		return nil, syscall.EINVAL
+	}
+
+	newNode := Node{
+		mcapi:  n.mcapi,
+		MCFile: dir,
+	}
+	out.Uid = uid
+	out.Gid = gid
+	now := time.Now()
+	out.SetTimes(&now, &now, &now)
+	out.Mode = 0755 | uint32(syscall.S_IFDIR)
+	return n.NewInode(ctx, &newNode, fs.StableAttr{Mode: syscall.S_IFDIR, Ino: n.inodeHash(dir)}), fs.OK
 }
 
 func (n *Node) Rmdir(ctx context.Context, name string) syscall.Errno {
@@ -187,21 +203,20 @@ func (n *Node) Unlink(ctx context.Context, name string) syscall.Errno {
 }
 
 func (n *Node) path(name string) string {
-	path := n.Path(n.Root())
-
-	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
-	}
-
-	if name != "" {
-		if path == "/" {
-			return path + name
-		}
-
-		return path + "/" + name
-	}
-
-	return path
+	return filepath.Join("/", n.Path(n.Root()), name)
+	//if !strings.HasPrefix(path, "/") {
+	//	path = "/" + path
+	//}
+	//
+	//if name != "" {
+	//	if path == "/" {
+	//		return path + name
+	//	}
+	//
+	//	return path + "/" + name
+	//}
+	//
+	//return path
 }
 
 func pathsMatch(path string, fileEntry mcapi.MCFile) bool {
