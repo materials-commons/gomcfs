@@ -48,7 +48,15 @@ project files as if they were local to the computer.`,
 		}
 
 		mcapiUrl := os.Getenv("MC_API_URL")
+		if mcapiUrl == "" {
+			log.Fatalf("MC_API_URL environment variable not set")
+		}
+
 		mcapiToken := os.Getenv("MC_API_TOKEN")
+		if mcapiToken == "" {
+			log.Fatalf("MC_API_TOKEN environment variable not set")
+		}
+
 		client := mcapi.NewClient(mcapiUrl, mcapiToken, projectId)
 		rootNode := mcfs.RootNode(client)
 
